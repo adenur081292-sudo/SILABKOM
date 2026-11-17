@@ -1,0 +1,509 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
+    }
+
+    function isMasterAdminEmail() {
+      return isSignedIn() &&
+        request.auth.token.email == 'adenur081292@gmail.com' &&
+        request.auth.token.email_verified == true;
+    }
+
+    function userDocExists() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isActiveUser() {
+      return isMasterAdminEmail() || (userDocExists() && mapHasTrue(userDoc(), 'isActive'));
+    }
+
+    function getUserRole() {
+      return (userDocExists() && ('role' in userDoc()) && userDoc().role is string) ? userDoc().role : '';
+    }
+
+    // Bootstrapped admin email check (verified) or active database admin role check
+    function isSuperAdmin() {
+      return isMasterAdminEmail() || (isActiveUser() && getUserRole() == 'admin');
+    }
+
+    function mapHasTrue(m, k) {
+      return (m is map) && (k in m) && m[k] == true;
+    }
+
+    function roleDocExists(r) {
+      return (r is string) && r != '' && exists(/databases/$(database)/documents/access_roles/$(r));
+    }
+
+    function roleDoc(r) {
+      return get(/databases/$(database)/documents/access_roles/$(r)).data;
+    }
+
+    function isCoreAdministratorDefaultPerm(permKey) {
+      return permKey in [
+        'manageInventory',
+        'manageSchedules',
+        'manageBorrowings',
+        'manageMaintenance',
+        'manageDamage',
+        'manageReports',
+        'inputPracticumJournal',
+        'manageActivitiesDocs',
+        'manageGallery',
+        'viewClassAttendance',
+        'inputClassAttendance',
+        'manageAttendanceStudents',
+        'manageAttendanceReports',
+        'viewComputerUsage',
+        'recordComputerUsage',
+        'manageComputerUsage',
+        'manageComputerDamageFollowUp'
+      ];
+    }
+
+    // Dynamic permission check against per-user customPermissions or /access_roles/{roleId}
+    // Uses safe key-existence checks to avoid CEL property-undefined evaluation crashes
+    function hasRolePermission(permKey) {
+      let u = userDocExists() ? userDoc() : {};
+      let r = ('role' in u && u.role is string) ? u.role : '';
+      let hasCustom = ('hasCustomPermissions' in u) && u.hasCustomPermissions == true;
+      return isSuperAdmin() || (
+        isActiveUser() && (
+          hasCustom
+            ? (('customPermissions' in u) && mapHasTrue(u.customPermissions, permKey))
+            : (
+                (roleDocExists(r) && ('permissions' in roleDoc(r)) && mapHasTrue(roleDoc(r).permissions, permKey)) ||
+                (r == 'administrator' && isCoreAdministratorDefaultPerm(permKey) && (
+                  !roleDocExists('administrator') ||
+                  !('permissions' in roleDoc('administrator')) ||
+                  !(roleDoc('administrator').permissions is map) ||
+                  !(permKey in roleDoc('administrator').permissions)
+                ))
+              )
+        )
+      );
+    }
+
+    function canManageUsers() {
+      return isSuperAdmin() || hasRolePermission('manageUsers') || hasRolePermission('crudAllData');
+    }
+
+    function isStaff() {
+      return isSuperAdmin() ||
+        (isActiveUser() && getUserRole() in ['administrator', 'kepala_lab', 'kepala_sekolah', 'teknisi', 'laboran']) ||
+        hasRolePermission('crudAllData');
+    }
+
+    function isTeacherOrStaff() {
+      return isStaff() || (isActiveUser() && getUserRole() == 'guru_mapel') || hasRolePermission('inputPracticumJournal');
+    }
+
+    // Class Attendance Access Helpers
+    function canAccessClassAttendance() {
+      return isSuperAdmin() ||
+        (isActiveUser() && getUserRole() in ['administrator', 'kepala_sekolah', 'wali_kelas', 'petugas_absensi']) ||
+        hasRolePermission('viewClassAttendance') ||
+        hasRolePermission('inputClassAttendance') ||
+        hasRolePermission('manageAttendanceStudents') ||
+        hasRolePermission('manageAttendanceReports');
+    }
+
+    function isClassAllowedForUser(classId) {
+      let u = userDocExists() ? userDoc() : {};
+      return isSuperAdmin() ||
+        (isActiveUser() && getUserRole() in ['administrator', 'kepala_sekolah']) ||
+        !('assignedClassIds' in u) ||
+        !(u.assignedClassIds is list) ||
+        u.assignedClassIds.size() == 0 ||
+        classId in u.assignedClassIds;
+    }
+
+    // Computer Usage Module Access Helpers
+    function canViewComputerUsage() {
+      return isSuperAdmin() ||
+        isStaff() ||
+        (isActiveUser() && getUserRole() == 'guru_mapel') ||
+        hasRolePermission('viewComputerUsage') ||
+        hasRolePermission('recordComputerUsage') ||
+        hasRolePermission('manageComputerUsage') ||
+        hasRolePermission('manageComputerDamageFollowUp');
+    }
+
+    function canRecordComputerUsage() {
+      return isSuperAdmin() ||
+        isStaff() ||
+        (isActiveUser() && getUserRole() == 'guru_mapel') ||
+        hasRolePermission('recordComputerUsage') ||
+        hasRolePermission('manageComputerUsage');
+    }
+
+    function isValidUserPayload(data, userId) {
+      return !('password' in data) &&
+        data.uid == userId &&
+        data.email is string && data.email.size() > 3 && data.email.size() <= 200 &&
+        data.displayName is string && data.displayName.size() > 0 && data.displayName.size() <= 150 &&
+        data.role is string && data.role.size() > 0 && data.role.size() <= 64 &&
+        data.isActive is bool;
+    }
+
+    // Dynamic Access Roles
+    match /access_roles/{roleId} {
+      allow read: if isActiveUser();
+      allow create, update: if isValidId(roleId) && (
+        isSuperAdmin() ||
+        (hasRolePermission('manageRoles') && roleId != 'admin')
+      );
+      allow delete: if isValidId(roleId) &&
+        !(roleId in ['admin', 'administrator', 'kepala_lab', 'guru_mapel', 'kepala_sekolah', 'teknisi', 'wali_kelas', 'petugas_absensi']) &&
+        (isSuperAdmin() || hasRolePermission('manageRoles'));
+    }
+
+    // User profiles (Strict PII isolation, no plaintext passwords, prevent self-escalation)
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (
+        request.auth.uid == userId || canManageUsers()
+      );
+      allow list: if canManageUsers();
+      allow create: if isSignedIn() && isValidId(userId) && isValidUserPayload(request.resource.data, userId) && (
+        isSuperAdmin() ||
+        (canManageUsers() && request.resource.data.role != 'admin') ||
+        (request.auth.uid == userId && isMasterAdminEmail() && request.resource.data.role == 'admin' && request.resource.data.isActive == true) ||
+        (
+          request.auth.uid == userId &&
+          request.auth.token.email is string &&
+          request.auth.token.email_verified == true &&
+          exists(/databases/$(database)/documents/user_invites/$(request.auth.token.email.lower())) &&
+          get(/databases/$(database)/documents/user_invites/$(request.auth.token.email.lower())).data.isActive == true &&
+          request.resource.data.role == get(/databases/$(database)/documents/user_invites/$(request.auth.token.email.lower())).data.role &&
+          request.resource.data.role != 'admin' &&
+          request.resource.data.isActive == true
+        )
+      );
+      allow update: if isSignedIn() && isValidId(userId) && isValidUserPayload(request.resource.data, userId) && (
+        isSuperAdmin() ||
+        (canManageUsers() && resource.data.role != 'admin' && request.resource.data.role != 'admin') ||
+        (
+          request.auth.uid == userId &&
+          isActiveUser() &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'phone', 'avatarUrl', 'nip', 'subject', 'lastLoginAt', 'updatedAt'])
+        )
+      );
+      allow delete: if isValidId(userId) &&
+        request.auth.uid != userId &&
+        resource.data.email != 'adenur081292@gmail.com' &&
+        (isSuperAdmin() || (canManageUsers() && resource.data.role != 'admin'));
+    }
+
+    // Pre-linked user invitations (for emails already in Firebase Authentication)
+    match /user_invites/{inviteId} {
+      allow get: if isValidId(inviteId) && (
+        canManageUsers() ||
+        (isSignedIn() && request.auth.token.email is string && request.auth.token.email_verified == true && request.auth.token.email.lower() == inviteId)
+      );
+      allow list: if canManageUsers();
+      allow create, update: if isValidId(inviteId) &&
+        (isSuperAdmin() || (canManageUsers() && request.resource.data.role != 'admin')) &&
+        request.resource.data.email is string &&
+        request.resource.data.email.size() > 3 &&
+        request.resource.data.role is string &&
+        request.resource.data.role.size() > 0 &&
+        request.resource.data.isActive is bool;
+      allow delete: if isValidId(inviteId) && (
+        canManageUsers() ||
+        (isSignedIn() && request.auth.token.email is string && request.auth.token.email_verified == true && request.auth.token.email.lower() == inviteId)
+      );
+    }
+
+    // Laboratories
+    match /laboratories/{labId} {
+      allow read: if isActiveUser();
+      allow write: if (isStaff() || hasRolePermission('manageInventory')) && isValidId(labId);
+    }
+
+    // Computers
+    match /computers/{computerId} {
+      allow read: if isActiveUser();
+      allow create, update: if (
+        isStaff() ||
+        hasRolePermission('manageInventory') ||
+        canRecordComputerUsage() ||
+        hasRolePermission('manageComputerDamageFollowUp')
+      ) && isValidId(computerId);
+      allow delete: if (isStaff() || hasRolePermission('manageInventory')) && isValidId(computerId);
+    }
+
+    // Supporting Equipment
+    match /equipment/{equipmentId} {
+      allow read: if isActiveUser();
+      allow write: if (isStaff() || hasRolePermission('manageInventory')) && isValidId(equipmentId);
+    }
+
+    // Schedules
+    match /schedules/{scheduleId} {
+      allow read: if isActiveUser();
+      allow write: if (isStaff() || hasRolePermission('manageSchedules')) && isValidId(scheduleId);
+    }
+
+    // Borrowings
+    match /borrowings/{borrowingId} {
+      allow read: if isActiveUser();
+      allow write: if (isTeacherOrStaff() || hasRolePermission('manageBorrowings')) && isValidId(borrowingId);
+    }
+
+    // Maintenance records
+    match /maintenance/{maintenanceId} {
+      allow read: if isActiveUser();
+      allow write: if (isStaff() || hasRolePermission('manageMaintenance')) && isValidId(maintenanceId);
+    }
+
+    // Damage reports
+    match /damage_reports/{reportId} {
+      allow read: if isActiveUser();
+      allow create: if isActiveUser() && isValidId(reportId);
+      allow update, delete: if (isStaff() || hasRolePermission('manageDamage') || hasRolePermission('manageComputerDamageFollowUp')) && isValidId(reportId);
+    }
+
+    // Practicum Student Attendance
+    match /practicum_attendance/{attendanceId} {
+      allow read: if isActiveUser();
+      allow create, update: if isTeacherOrStaff() && isValidId(attendanceId) &&
+        request.resource.data.presentCount >= 0 &&
+        request.resource.data.totalStudents >= 0;
+      allow delete: if (isTeacherOrStaff() || isSuperAdmin()) && isValidId(attendanceId);
+    }
+
+    // Practicum Lesson Journals
+    match /lesson_journals/{journalId} {
+      allow read: if isActiveUser();
+      allow create, update: if isTeacherOrStaff() && isValidId(journalId) &&
+        request.resource.data.comfortRating >= 1 &&
+        request.resource.data.comfortRating <= 5;
+      allow delete: if (isTeacherOrStaff() || isSuperAdmin()) && isValidId(journalId);
+    }
+
+    // Lab user directory
+    match /users_lab/{userLabId} {
+      allow read: if isActiveUser();
+      allow write: if (isStaff() || hasRolePermission('manageUsers') || hasRolePermission('manageInventory')) && isValidId(userLabId);
+    }
+
+    // Activity documentation
+    match /activities/{activityId} {
+      allow read: if isActiveUser();
+      allow write: if (isTeacherOrStaff() || hasRolePermission('manageActivitiesDocs')) && isValidId(activityId);
+    }
+
+    // Administrative documents & SOPs
+    match /documents/{documentId} {
+      allow read: if isActiveUser();
+      allow write: if (isStaff() || hasRolePermission('manageActivitiesDocs')) && isValidId(documentId);
+    }
+
+    // Guestbook & lab usage logs
+    match /guests/{guestId} {
+      allow read: if isActiveUser();
+      allow create: if isActiveUser() && isValidId(guestId);
+      allow update, delete: if isStaff() && isValidId(guestId);
+    }
+
+    // School & Application Settings
+    match /settings/{settingId} {
+      allow read: if isActiveUser();
+      allow write: if (isSuperAdmin() || hasRolePermission('manageSettings')) && isValidId(settingId);
+    }
+
+    // Audit logs (Security & operational audit trail)
+    match /activity_logs/{logId} {
+      allow read: if isActiveUser();
+      allow create: if isActiveUser() && isValidId(logId);
+      allow update, delete: if isSuperAdmin() && isValidId(logId);
+    }
+
+    // ==========================================
+    // ABSENSI KELAS MODULE COLLECTIONS
+    // ==========================================
+
+    match /classes/{classId} {
+      allow read: if isActiveUser();
+      allow write: if (isSuperAdmin() || hasRolePermission('manageAttendanceSettings') || hasRolePermission('crudAllData')) && isValidId(classId);
+    }
+
+    match /students/{studentId} {
+      allow read: if canAccessClassAttendance() || canViewComputerUsage();
+      allow create, update: if (isSuperAdmin() || hasRolePermission('manageAttendanceStudents') || hasRolePermission('crudAllData')) &&
+        isValidId(studentId) &&
+        request.resource.data.classId is string &&
+        request.resource.data.classId.size() > 0 &&
+        request.resource.data.classId.size() <= 64 &&
+        isClassAllowedForUser(request.resource.data.classId) &&
+        request.resource.data.nis is string &&
+        request.resource.data.nis.size() > 0 &&
+        request.resource.data.nis.size() <= 64 &&
+        (
+          ('fullName' in request.resource.data && request.resource.data.fullName is string && request.resource.data.fullName.size() > 0 && request.resource.data.fullName.size() <= 200) ||
+          ('name' in request.resource.data && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 200)
+        ) &&
+        request.resource.data.gender in ['L', 'P', 'Laki-laki', 'Perempuan'] &&
+        request.resource.data.status in ['Aktif', 'Tidak Aktif'];
+      allow delete: if (isSuperAdmin() || hasRolePermission('manageAttendanceStudents') || hasRolePermission('crudAllData')) &&
+        isValidId(studentId) &&
+        (!('classId' in resource.data) || isClassAllowedForUser(resource.data.classId));
+    }
+
+    match /attendance/{attendanceId} {
+      allow read: if canAccessClassAttendance() || canViewComputerUsage();
+      allow create, update: if (isSuperAdmin() || hasRolePermission('inputClassAttendance') || hasRolePermission('crudAllData')) &&
+        isValidId(attendanceId) &&
+        isClassAllowedForUser(request.resource.data.classId) &&
+        request.resource.data.status in ['H', 'S', 'I', 'A', 'D'];
+      allow delete: if (isSuperAdmin() || hasRolePermission('inputClassAttendance') || hasRolePermission('crudAllData')) &&
+        isValidId(attendanceId) &&
+        isClassAllowedForUser(resource.data.classId);
+    }
+
+    match /academic_years/{yearId} {
+      allow read: if isActiveUser();
+      allow write: if (isSuperAdmin() || hasRolePermission('manageAttendanceSettings') || hasRolePermission('crudAllData')) && isValidId(yearId);
+    }
+
+    match /school_calendar/{eventId} {
+      allow read: if isActiveUser();
+      allow write: if (isSuperAdmin() || hasRolePermission('manageAttendanceSettings') || hasRolePermission('crudAllData')) && isValidId(eventId);
+    }
+
+    match /attendance_settings/{settingId} {
+      allow read: if isActiveUser();
+      allow write: if (isSuperAdmin() || hasRolePermission('manageAttendanceSettings') || hasRolePermission('crudAllData')) && isValidId(settingId);
+    }
+
+    match /attendance_logs/{logId} {
+      allow read: if canAccessClassAttendance();
+      allow create: if (isSuperAdmin() || hasRolePermission('inputClassAttendance') || hasRolePermission('crudAllData')) && isValidId(logId);
+      allow update, delete: if isSuperAdmin() && isValidId(logId);
+    }
+
+    // ==========================================
+    // GALERI LABORATORIUM MODULE COLLECTIONS
+    // ==========================================
+
+    match /galleryImages/{imageId} {
+      allow read: if isActiveUser();
+      allow create, update: if (isSuperAdmin() || hasRolePermission('manageGallery')) &&
+        isValidId(imageId) &&
+        request.resource.data.imageId is string &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() > 0 &&
+        request.resource.data.title.size() <= 200 &&
+        request.resource.data.category is string &&
+        request.resource.data.category.size() > 0 &&
+        request.resource.data.imageUrl is string &&
+        request.resource.data.imageUrl.size() > 0 &&
+        request.resource.data.storagePath is string &&
+        request.resource.data.status in ['Aktif', 'Arsip'];
+      allow delete: if (isSuperAdmin() || hasRolePermission('manageGallery')) && isValidId(imageId);
+    }
+
+    match /galleryCategories/{categoryId} {
+      allow read: if isActiveUser();
+      allow create, update: if (isSuperAdmin() || hasRolePermission('manageGallery')) &&
+        isValidId(categoryId) &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.name.size() <= 150;
+      allow delete: if (isSuperAdmin() || hasRolePermission('manageGallery')) && isValidId(categoryId);
+    }
+
+    // ==========================================
+    // RIWAYAT PENGGUNAAN KOMPUTER COLLECTIONS
+    // ==========================================
+
+    match /computer_usage/{usageId} {
+      allow read: if canViewComputerUsage();
+      allow create: if canRecordComputerUsage() &&
+        isValidId(usageId) &&
+        request.resource.data.computerId is string &&
+        request.resource.data.computerId.size() > 0 &&
+        request.resource.data.userType in ['Siswa', 'Guru/Tendik', 'Teknisi/Laboran', 'Tamu'] &&
+        request.resource.data.userName is string &&
+        request.resource.data.userName.size() > 0 &&
+        request.resource.data.usageStatus in ['Sedang Digunakan', 'Selesai', 'Dibatalkan'];
+      allow update: if (canRecordComputerUsage() || hasRolePermission('manageComputerUsage')) &&
+        isValidId(usageId) &&
+        request.resource.data.usageStatus in ['Sedang Digunakan', 'Selesai', 'Dibatalkan'];
+      allow delete: if (isSuperAdmin() || hasRolePermission('manageComputerUsage')) && isValidId(usageId);
+    }
+
+    match /computer_usage_members/{memberId} {
+      allow read: if canViewComputerUsage();
+      allow create, update: if canRecordComputerUsage() &&
+        isValidId(memberId) &&
+        request.resource.data.usageId is string &&
+        request.resource.data.usageId.size() > 0 &&
+        request.resource.data.studentName is string &&
+        request.resource.data.studentName.size() > 0;
+      allow delete: if (isSuperAdmin() || hasRolePermission('manageComputerUsage')) && isValidId(memberId);
+    }
+
+    match /computer_condition_checks/{checkId} {
+      allow read: if canViewComputerUsage();
+      allow create, update: if canRecordComputerUsage() &&
+        isValidId(checkId) &&
+        request.resource.data.phase in ['Sebelum Penggunaan', 'Sesudah Penggunaan', 'Pemeriksaan Berkala'] &&
+        request.resource.data.overallCondition in ['Baik', 'Bermasalah', 'Rusak'];
+      allow delete: if isSuperAdmin() && isValidId(checkId);
+    }
+
+    match /computer_damage_reports/{reportId} {
+      allow read: if canViewComputerUsage();
+      allow create: if canRecordComputerUsage() &&
+        isValidId(reportId) &&
+        request.resource.data.computerId is string &&
+        request.resource.data.damageDescription is string &&
+        request.resource.data.damageDescription.size() > 0 &&
+        request.resource.data.severity in ['Ringan', 'Sedang', 'Berat', 'Kritis'] &&
+        request.resource.data.followUpStatus in ['Menunggu Pemeriksaan', 'Perlu Pemeriksaan', 'Dalam Perbaikan', 'Selesai Diperbaiki', 'Rusak Permanen'];
+      allow update: if (isSuperAdmin() || isStaff() || hasRolePermission('manageComputerDamageFollowUp') || hasRolePermission('manageComputerUsage')) &&
+        isValidId(reportId) &&
+        request.resource.data.followUpStatus in ['Menunggu Pemeriksaan', 'Perlu Pemeriksaan', 'Dalam Perbaikan', 'Selesai Diperbaiki', 'Rusak Permanen'];
+      allow delete: if (isSuperAdmin() || hasRolePermission('manageComputerUsage')) && isValidId(reportId);
+    }
+
+    match /computer_status_history/{historyId} {
+      allow read: if canViewComputerUsage();
+      allow create: if (canRecordComputerUsage() || hasRolePermission('manageComputerDamageFollowUp')) && isValidId(historyId);
+      allow update, delete: if isSuperAdmin() && isValidId(historyId);
+    }
+
+    match /external_users/{guestId} {
+      allow read: if canViewComputerUsage();
+      allow create, update: if canRecordComputerUsage() &&
+        isValidId(guestId) &&
+        request.resource.data.fullName is string &&
+        request.resource.data.fullName.size() > 0 &&
+        request.resource.data.institution is string &&
+        request.resource.data.institution.size() > 0;
+      allow delete: if (isSuperAdmin() || hasRolePermission('manageComputerUsage')) && isValidId(guestId);
+    }
+
+    match /computer_usage_settings/{settingId} {
+      allow read: if isActiveUser();
+      allow write: if (isSuperAdmin() || hasRolePermission('manageComputerUsage') || hasRolePermission('manageSettings')) && isValidId(settingId);
+    }
+  }
+}

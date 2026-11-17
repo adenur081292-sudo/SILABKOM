@@ -1,0 +1,968 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User account profile and system role in SILABKOM",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "description": "User email address" },
+        "displayName": { "type": "string", "description": "Full name of the user" },
+        "role": {
+          "type": "string",
+          "description": "User access level ID (admin, administrator, kepala_lab, guru_mapel, kepala_sekolah, teknisi, wali_kelas, petugas_absensi, or custom role created by Administrator)"
+        },
+        "position": { "type": "string", "description": "Job title / Jabatan di sekolah atau laboratorium" },
+        "nip": { "type": "string", "description": "Employee ID number (NIP/NUPTK)" },
+        "subject": { "type": "string", "description": "Teaching subject or unit" },
+        "phone": { "type": "string", "description": "Phone or WhatsApp number" },
+        "avatarUrl": { "type": "string", "description": "Profile picture URL" },
+        "assignedClassIds": { "type": "array", "items": { "type": "string" }, "description": "Assigned class IDs for Wali Kelas or Petugas Absensi scoping" },
+        "hasCustomPermissions": { "type": "boolean", "description": "Whether per-user custom permissions override role defaults" },
+        "customAllowedMenus": { "type": "array", "items": { "type": "string" }, "description": "Custom menu allowlist for this user" },
+        "customPermissions": { "type": "object", "description": "Custom action permissions map for this user" },
+        "isActive": { "type": "boolean", "description": "Whether account is enabled" },
+        "authProvisioned": { "type": "boolean", "description": "Whether Firebase Auth account is provisioned" },
+        "lastLoginAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "disabledAt": { "type": "string", "format": "date-time" },
+        "disabledBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "displayName", "role", "isActive"]
+    },
+    "UserInvite": {
+      "title": "UserInvite",
+      "description": "Pre-linked account invite & role assignment for existing Firebase Auth emails (keyed by normalized email)",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string" },
+        "position": { "type": "string" },
+        "nip": { "type": "string" },
+        "subject": { "type": "string" },
+        "phone": { "type": "string" },
+        "assignedClassIds": { "type": "array", "items": { "type": "string" } },
+        "hasCustomPermissions": { "type": "boolean" },
+        "customAllowedMenus": { "type": "array", "items": { "type": "string" } },
+        "customPermissions": { "type": "object" },
+        "isActive": { "type": "boolean" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "displayName", "role", "isActive"]
+    },
+    "AccessRole": {
+      "title": "AccessRole",
+      "description": "Dynamic access level definition managed by Administrator",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "description": { "type": "string" },
+        "allowedMenus": { "type": "array", "items": { "type": "string" } },
+        "permissions": { "type": "object" },
+        "isSystem": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "allowedMenus", "permissions"]
+    },
+    "StudentAttendance": {
+      "title": "StudentAttendance",
+      "description": "Student attendance records during lab practicum entered by subject teachers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "startTime": { "type": "string" },
+        "endTime": { "type": "string" },
+        "teacherName": { "type": "string" },
+        "subject": { "type": "string" },
+        "classGrade": { "type": "string" },
+        "labName": { "type": "string" },
+        "totalStudents": { "type": "number" },
+        "presentCount": { "type": "number" },
+        "sickCount": { "type": "number" },
+        "permissionCount": { "type": "number" },
+        "absentCount": { "type": "number" },
+        "absentStudentNames": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdByUid": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["date", "teacherName", "subject", "classGrade", "presentCount"]
+    },
+    "LessonJournal": {
+      "title": "LessonJournal",
+      "description": "Teaching incident logs, 1-5 star comfort feedback, and practicum photo documentation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "startTime": { "type": "string" },
+        "endTime": { "type": "string" },
+        "teacherName": { "type": "string" },
+        "subject": { "type": "string" },
+        "classGrade": { "type": "string" },
+        "labName": { "type": "string" },
+        "topic": { "type": "string" },
+        "incidentCategory": { "type": "string", "enum": ["Kondusif / Normal", "Kendala Teknis", "Insiden / Perlu Perhatian"] },
+        "incidentNotes": { "type": "string" },
+        "comfortRating": { "type": "number" },
+        "comfortFeedback": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "photoCaption": { "type": "string" },
+        "createdByUid": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["date", "teacherName", "subject", "incidentNotes", "comfortRating"]
+    },
+    "Laboratory": {
+      "title": "Laboratory",
+      "description": "Computer laboratory room information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "capacity": { "type": "number" },
+        "location": { "type": "string" },
+        "areaSize": { "type": "string" },
+        "totalComputers": { "type": "number" },
+        "personInCharge": { "type": "string" },
+        "picNip": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["Tersedia", "Sedang Digunakan", "Pemeliharaan"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "code", "capacity"]
+    },
+    "Computer": {
+      "title": "Computer",
+      "description": "Computer inventory workstation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "inventoryNumber": { "type": "string" },
+        "computerCode": { "type": "string" },
+        "deviceName": { "type": "string" },
+        "brand": { "type": "string" },
+        "model": { "type": "string" },
+        "serialNumber": { "type": "string" },
+        "processor": { "type": "string" },
+        "ram": { "type": "string" },
+        "storage": { "type": "string" },
+        "os": { "type": "string" },
+        "monitor": { "type": "string" },
+        "keyboard": { "type": "string" },
+        "mouse": { "type": "string" },
+        "procurementYear": { "type": "number" },
+        "fundingSource": { "type": "string" },
+        "procurementPrice": { "type": "number" },
+        "labId": { "type": "string" },
+        "labName": { "type": "string" },
+        "lastCheckDate": { "type": "string" },
+        "condition": {
+          "type": "string",
+          "enum": ["Baik", "Rusak Ringan", "Rusak Berat", "Dalam Perbaikan", "Tidak Digunakan"]
+        },
+        "photoUrl": { "type": "string" },
+        "notes": { "type": "string" },
+        "qrCodeData": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["inventoryNumber", "computerCode", "deviceName", "condition", "labId"]
+    },
+    "Equipment": {
+      "title": "Equipment",
+      "description": "Supporting equipment and peripherals",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "inventoryNumber": { "type": "string" },
+        "name": { "type": "string" },
+        "category": {
+          "type": "string",
+          "enum": ["Printer", "Scanner", "Proyektor", "Switch", "Router", "Access Point", "UPS", "Server", "Kabel Jaringan", "Meja Komputer", "Kursi", "Lainnya"]
+        },
+        "brand": { "type": "string" },
+        "model": { "type": "string" },
+        "serialNumber": { "type": "string" },
+        "quantity": { "type": "number" },
+        "unit": { "type": "string" },
+        "procurementYear": { "type": "number" },
+        "fundingSource": { "type": "string" },
+        "procurementPrice": { "type": "number" },
+        "labId": { "type": "string" },
+        "labName": { "type": "string" },
+        "condition": {
+          "type": "string",
+          "enum": ["Baik", "Rusak Ringan", "Rusak Berat", "Dalam Perbaikan", "Tidak Digunakan"]
+        },
+        "photoUrl": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["inventoryNumber", "name", "category", "quantity", "condition", "labId"]
+    },
+    "Schedule": {
+      "title": "Schedule",
+      "description": "Lab usage and booking schedule",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "startTime": { "type": "string" },
+        "endTime": { "type": "string" },
+        "teacherName": { "type": "string" },
+        "subject": { "type": "string" },
+        "classGrade": { "type": "string" },
+        "vocationalMajor": { "type": "string" },
+        "labId": { "type": "string" },
+        "labName": { "type": "string" },
+        "studentCount": { "type": "number" },
+        "purpose": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["Menunggu", "Disetujui", "Sedang Berlangsung", "Selesai", "Dibatalkan"]
+        },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["date", "startTime", "endTime", "teacherName", "subject", "classGrade", "labId", "status"]
+    },
+    "Borrowing": {
+      "title": "Borrowing",
+      "description": "Equipment borrowing and return transactions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "transactionNumber": { "type": "string" },
+        "borrowDate": { "type": "string" },
+        "borrowerName": { "type": "string" },
+        "borrowerRole": { "type": "string" },
+        "itemName": { "type": "string" },
+        "itemId": { "type": "string" },
+        "quantity": { "type": "number" },
+        "initialCondition": { "type": "string" },
+        "returnDate": { "type": "string" },
+        "actualReturnDate": { "type": "string" },
+        "returnedCondition": { "type": "string" },
+        "officerName": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["Dipinjam", "Sudah Dikembalikan", "Terlambat", "Rusak"]
+        },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["transactionNumber", "borrowDate", "borrowerName", "itemName", "quantity", "status"]
+    },
+    "Maintenance": {
+      "title": "Maintenance",
+      "description": "Device maintenance, servicing and repair records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "workOrderNumber": { "type": "string" },
+        "checkDate": { "type": "string" },
+        "deviceName": { "type": "string" },
+        "deviceType": { "type": "string" },
+        "inventoryNumber": { "type": "string" },
+        "damageType": { "type": "string" },
+        "damageAnalysis": { "type": "string" },
+        "repairAction": { "type": "string" },
+        "technicianName": { "type": "string" },
+        "cost": { "type": "number" },
+        "spareParts": { "type": "string" },
+        "completedDate": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["Dijadwalkan", "Dalam Pengerjaan", "Menunggu Suku Cadang", "Selesai", "Tidak Dapat Diperbaiki"]
+        },
+        "photoBeforeUrl": { "type": "string" },
+        "photoAfterUrl": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["workOrderNumber", "checkDate", "deviceName", "status", "technicianName"]
+    },
+    "DamageReport": {
+      "title": "DamageReport",
+      "description": "Damage notifications and tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reportDate": { "type": "string" },
+        "reporterName": { "type": "string" },
+        "reporterRole": { "type": "string" },
+        "deviceName": { "type": "string" },
+        "inventoryNumber": { "type": "string" },
+        "labName": { "type": "string" },
+        "damageDescription": { "type": "string" },
+        "severity": {
+          "type": "string",
+          "enum": ["Ringan", "Sedang", "Berat", "Kritis"]
+        },
+        "photoUrl": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["Menunggu Verifikasi", "Diterima", "Dalam Penanganan", "Selesai", "Ditolak"]
+        },
+        "handlerOfficer": { "type": "string" },
+        "followUpNotes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["reportDate", "reporterName", "deviceName", "damageDescription", "severity", "status"]
+    },
+    "LabUser": {
+      "title": "LabUser",
+      "description": "Registered teachers, lab staff, and students",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "identifier": { "type": "string", "description": "NIP/NISN/NIK" },
+        "category": {
+          "type": "string",
+          "enum": ["Guru", "Teknisi", "Laboran", "Siswa", "Kepala Sekolah", "Lainnya"]
+        },
+        "classOrDept": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "gender": { "type": "string", "enum": ["L", "P"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "category"]
+    },
+    "Activity": {
+      "title": "Activity",
+      "description": "Photo and event documentation in the computer labs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "date": { "type": "string" },
+        "personInCharge": { "type": "string" },
+        "location": { "type": "string" },
+        "description": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "documentUrl": { "type": "string" },
+        "category": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "date", "personInCharge"]
+    },
+    "LabDocument": {
+      "title": "LabDocument",
+      "description": "Administrative documents, SOPs, rules, minutes, and requests",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "docType": {
+          "type": "string",
+          "enum": [
+            "Tata Tertib",
+            "SOP Penggunaan Komputer",
+            "SOP Peminjaman",
+            "SOP Pemeliharaan",
+            "Jadwal Pemeliharaan",
+            "Berita Acara",
+            "Form Pemeriksaan",
+            "Daftar Kebutuhan",
+            "Lainnya"
+          ]
+        },
+        "documentNumber": { "type": "string" },
+        "publishDate": { "type": "string" },
+        "content": { "type": "string" },
+        "fileUrl": { "type": "string" },
+        "author": { "type": "string" },
+        "status": { "type": "string", "enum": ["Aktif", "Draft", "Arsip"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "docType", "publishDate"]
+    },
+    "Guest": {
+      "title": "Guest",
+      "description": "Lab visitor book and practical attendance log",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "visitorName": { "type": "string" },
+        "roleOrClass": { "type": "string" },
+        "institution": { "type": "string" },
+        "purpose": { "type": "string" },
+        "labRoom": { "type": "string" },
+        "computerUsed": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["visitorName", "date", "purpose"]
+    },
+    "AppSetting": {
+      "title": "AppSetting",
+      "description": "School institutional info and report signatories",
+      "type": "object",
+      "properties": {
+        "schoolName": { "type": "string" },
+        "schoolAddress": { "type": "string" },
+        "schoolPhone": { "type": "string" },
+        "schoolEmail": { "type": "string" },
+        "schoolWebsite": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "principalName": { "type": "string" },
+        "principalNip": { "type": "string" },
+        "headOfLabName": { "type": "string" },
+        "headOfLabNip": { "type": "string" },
+        "leadTechnicianName": { "type": "string" },
+        "academicYear": { "type": "string" },
+        "reportHeaderGov": { "type": "string" },
+        "reportHeaderDept": { "type": "string" },
+        "appName": { "type": "string" },
+        "productionLoginUrl": { "type": "string", "description": "Published HTTPS production URL for SILABKOM login sharing" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["schoolName", "principalName", "headOfLabName"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "System audit trail for operations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userRole": { "type": "string" },
+        "action": { "type": "string" },
+        "module": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "action", "module", "timestamp"]
+    },
+    "SchoolClass": {
+      "title": "SchoolClass",
+      "description": "Fixed 9 classes of SMKN 15 Pandeglang (X/XI/XII AKL, DKV, ATPH)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "gradeLevel": { "type": "string", "enum": ["X", "XI", "XII"] },
+        "major": { "type": "string", "enum": ["AKL", "DKV", "ATPH"] },
+        "majorFullName": { "type": "string" },
+        "homeroomTeacherName": { "type": "string" },
+        "homeroomTeacherNip": { "type": "string" },
+        "academicYear": { "type": "string" },
+        "order": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "gradeLevel", "major"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Student master data per class",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "nis": { "type": "string" },
+        "nisn": { "type": "string" },
+        "fullName": { "type": "string" },
+        "name": { "type": "string" },
+        "gender": { "type": "string", "enum": ["L", "P"] },
+        "classId": { "type": "string" },
+        "className": { "type": "string" },
+        "grade": { "type": "string", "enum": ["X", "XI", "XII"] },
+        "major": { "type": "string" },
+        "majorCode": { "type": "string", "enum": ["AKL", "DKV", "ATPH"] },
+        "academicYear": { "type": "string" },
+        "homeroomTeacher": { "type": "string" },
+        "address": { "type": "string" },
+        "status": { "type": "string", "enum": ["Aktif", "Tidak Aktif"] },
+        "parentPhone": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nis", "fullName", "gender", "classId", "status"]
+    },
+    "ClassAttendanceRecord": {
+      "title": "ClassAttendanceRecord",
+      "description": "Per-student daily class attendance record (deterministic ID prevents duplicates)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "nis": { "type": "string" },
+        "classId": { "type": "string" },
+        "className": { "type": "string" },
+        "date": { "type": "string" },
+        "session": { "type": "string" },
+        "academicYear": { "type": "string" },
+        "semester": { "type": "string", "enum": ["1", "2"] },
+        "status": { "type": "string", "enum": ["H", "S", "I", "A", "D"] },
+        "description": { "type": "string" },
+        "recordedBy": { "type": "string" },
+        "recordedByUid": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["studentId", "classId", "date", "session", "status", "recordedBy"]
+    },
+    "AcademicYearConfig": {
+      "title": "AcademicYearConfig",
+      "description": "Academic year and Semester 1/2 date ranges",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "year": { "type": "string" },
+        "semester1Start": { "type": "string" },
+        "semester1End": { "type": "string" },
+        "semester2Start": { "type": "string" },
+        "semester2End": { "type": "string" },
+        "activeSemester": { "type": "string", "enum": ["1", "2"] },
+        "isActive": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "year", "semester1Start", "semester2End"]
+    },
+    "SchoolCalendarEvent": {
+      "title": "SchoolCalendarEvent",
+      "description": "Holidays, semester breaks, and academic calendar events",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "endDate": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string", "enum": ["Libur Nasional", "Libur Semester", "Libur Khusus Sekolah", "Kegiatan Sekolah"] },
+        "isHoliday": { "type": "boolean" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "date", "title", "type", "isHoliday"]
+    },
+    "AttendanceSettings": {
+      "title": "AttendanceSettings",
+      "description": "Effective school days, low attendance threshold, and official report signatories",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "activeAcademicYear": { "type": "string" },
+        "activeSemester": { "type": "string", "enum": ["1", "2"] },
+        "activeDays": { "type": "array", "items": { "type": "number" } },
+        "schoolStartDate": { "type": "string" },
+        "lowAttendanceThreshold": { "type": "number" },
+        "principalName": { "type": "string" },
+        "principalNip": { "type": "string" },
+        "reportCity": { "type": "string" },
+        "schoolName": { "type": "string" },
+        "schoolAddress": { "type": "string" },
+        "reportHeaderGov": { "type": "string" },
+        "reportHeaderDept": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["activeAcademicYear", "activeSemester", "activeDays"]
+    },
+    "AttendanceLog": {
+      "title": "AttendanceLog",
+      "description": "Per-student attendance modification audit trail",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "attendanceId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "classId": { "type": "string" },
+        "className": { "type": "string" },
+        "date": { "type": "string" },
+        "session": { "type": "string" },
+        "action": { "type": "string", "enum": ["CREATE", "UPDATE", "DELETE"] },
+        "previousStatus": { "type": "string" },
+        "newStatus": { "type": "string" },
+        "officerName": { "type": "string" },
+        "officerRole": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["attendanceId", "studentId", "action", "officerName", "timestamp"]
+    },
+    "GalleryCategory": {
+      "title": "GalleryCategory",
+      "description": "Manageable categories for Galeri Laboratorium",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "order"]
+    },
+    "GalleryImage": {
+      "title": "GalleryImage",
+      "description": "Online visual documentation image metadata stored in Firestore and Firebase Storage",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "imageId": { "type": "string" },
+        "title": { "type": "string", "maxLength": 200 },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "notes": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "storagePath": { "type": "string" },
+        "uploadDate": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "uploadedBy": { "type": "string" },
+        "status": { "type": "string", "enum": ["Aktif", "Arsip"] }
+      },
+      "required": ["imageId", "title", "category", "imageUrl", "storagePath", "uploadDate", "status"]
+    },
+    "ComputerUsageRecord": {
+      "title": "ComputerUsageRecord",
+      "description": "Computer usage check-in/check-out transaction record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "usageId": { "type": "string" },
+        "computerId": { "type": "string" },
+        "computerCode": { "type": "string" },
+        "computerName": { "type": "string" },
+        "inventoryCode": { "type": "string" },
+        "userType": { "type": "string", "enum": ["Siswa", "Guru/Tendik", "Teknisi/Laboran", "Tamu"] },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "studentNis": { "type": "string" },
+        "studentNisn": { "type": "string" },
+        "studentClass": { "type": "string" },
+        "attendanceId": { "type": "string" },
+        "attendanceStatus": { "type": "string" },
+        "externalUserId": { "type": "string" },
+        "externalInstitution": { "type": "string" },
+        "externalContact": { "type": "string" },
+        "companionName": { "type": "string" },
+        "subjectOrActivity": { "type": "string" },
+        "isGroupUsage": { "type": "boolean" },
+        "memberCount": { "type": "number" },
+        "roomId": { "type": "string" },
+        "roomName": { "type": "string" },
+        "usageDate": { "type": "string" },
+        "startTime": { "type": "string" },
+        "endTime": { "type": "string" },
+        "durationMinutes": { "type": "number" },
+        "duration": { "type": "string" },
+        "purpose": { "type": "string" },
+        "conditionBefore": { "type": "string", "enum": ["Baik", "Bermasalah", "Rusak"] },
+        "conditionBeforeNotes": { "type": "string" },
+        "conditionAfter": { "type": "string", "enum": ["Baik", "Bermasalah", "Rusak"] },
+        "conditionAfterNotes": { "type": "string" },
+        "hasProblemAfter": { "type": "boolean" },
+        "usageStatus": { "type": "string", "enum": ["Sedang Digunakan", "Selesai", "Dibatalkan"] },
+        "recordedBy": { "type": "string" },
+        "recordedByUid": { "type": "string" },
+        "notes": { "type": "string" },
+        "editReason": { "type": "string" },
+        "damageReportId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["usageId", "computerId", "computerCode", "userType", "userName", "usageDate", "startTime", "usageStatus"]
+    },
+    "ComputerUsageMember": {
+      "title": "ComputerUsageMember",
+      "description": "Individual student member linked to a computer usage session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "usageId": { "type": "string" },
+        "computerId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "studentNis": { "type": "string" },
+        "studentNisn": { "type": "string" },
+        "studentClass": { "type": "string" },
+        "attendanceId": { "type": "string" },
+        "attendanceStatus": { "type": "string" },
+        "roleInGroup": { "type": "string", "enum": ["Ketua Kelompok", "Anggota"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["usageId", "computerId", "studentId", "studentName", "studentClass"]
+    },
+    "ComputerConditionCheck": {
+      "title": "ComputerConditionCheck",
+      "description": "9-component hardware/software condition inspection before and after computer usage",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "usageId": { "type": "string" },
+        "computerId": { "type": "string" },
+        "inventoryCode": { "type": "string" },
+        "computerCode": { "type": "string" },
+        "phase": { "type": "string", "enum": ["Sebelum Penggunaan", "Sesudah Penggunaan", "Pemeriksaan Berkala"] },
+        "checklist": { "type": "object" },
+        "overallCondition": { "type": "string", "enum": ["Baik", "Bermasalah", "Rusak"] },
+        "notes": { "type": "string" },
+        "checkedBy": { "type": "string" },
+        "checkedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["usageId", "computerId", "phase", "overallCondition", "checkedBy"]
+    },
+    "ComputerDamageReport": {
+      "title": "ComputerDamageReport",
+      "description": "Non-blaming chronological computer damage report & technician follow-up",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reportNumber": { "type": "string" },
+        "usageId": { "type": "string" },
+        "computerId": { "type": "string" },
+        "computerCode": { "type": "string" },
+        "computerName": { "type": "string" },
+        "inventoryCode": { "type": "string" },
+        "roomId": { "type": "string" },
+        "roomName": { "type": "string" },
+        "damageType": { "type": "string" },
+        "damageDescription": { "type": "string" },
+        "affectedComponents": { "type": "array" },
+        "severity": { "type": "string", "enum": ["Ringan", "Sedang", "Berat", "Kritis"] },
+        "discoveredAt": { "type": "string" },
+        "discoveredDate": { "type": "string" },
+        "lastUsageId": { "type": "string" },
+        "lastUserName": { "type": "string" },
+        "lastUserType": { "type": "string" },
+        "lastUserClassOrOrg": { "type": "string" },
+        "lastUsageDate": { "type": "string" },
+        "lastUsageTime": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "inspectorName": { "type": "string" },
+        "initialAction": { "type": "string" },
+        "additionalNotes": { "type": "string" },
+        "followUpStatus": { "type": "string", "enum": ["Menunggu Pemeriksaan", "Perlu Pemeriksaan", "Dalam Perbaikan", "Selesai Diperbaiki", "Rusak Permanen"] },
+        "followUpHistory": { "type": "array" },
+        "notifiedRoles": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["reportNumber", "computerId", "computerCode", "damageDescription", "severity", "followUpStatus"]
+    },
+    "ComputerStatusHistory": {
+      "title": "ComputerStatusHistory",
+      "description": "Audit history of computer operational status changes",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "computerId": { "type": "string" },
+        "computerCode": { "type": "string" },
+        "previousStatus": { "type": "string" },
+        "newStatus": { "type": "string" },
+        "usageId": { "type": "string" },
+        "damageReportId": { "type": "string" },
+        "reason": { "type": "string" },
+        "changedBy": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["computerId", "previousStatus", "newStatus", "reason", "changedBy", "timestamp"]
+    },
+    "ExternalUser": {
+      "title": "ExternalUser",
+      "description": "Directory of external guests using laboratory computers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "fullName": { "type": "string" },
+        "institution": { "type": "string" },
+        "identityOrContact": { "type": "string" },
+        "totalVisits": { "type": "number" },
+        "lastVisitDate": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["fullName", "institution"]
+    },
+    "ComputerUsageSettings": {
+      "title": "ComputerUsageSettings",
+      "description": "Configuration policies for the Computer Usage Tracking module",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timezone": { "type": "string" },
+        "allowManualTimeOverrideForAdmin": { "type": "boolean" },
+        "requireBeforeCheck": { "type": "boolean" },
+        "requireAfterCheck": { "type": "boolean" },
+        "allowGroupUsage": { "type": "boolean" },
+        "maxGroupSize": { "type": "number" },
+        "defaultRoomId": { "type": "string" },
+        "lowUsageThresholdCount": { "type": "number" },
+        "notifyAdminOnDamage": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Collection of user accounts and permissions (no passwords stored)"
+    },
+    "/user_invites/{inviteId}": {
+      "schema": { "$ref": "#/entities/UserInvite" },
+      "description": "Pre-linked role invitations for accounts whose email already exists in Firebase Auth"
+    },
+    "/laboratories/{labId}": {
+      "schema": { "$ref": "#/entities/Laboratory" },
+      "description": "Computer laboratory rooms"
+    },
+    "/computers/{computerId}": {
+      "schema": { "$ref": "#/entities/Computer" },
+      "description": "Computer workstations"
+    },
+    "/equipment/{equipmentId}": {
+      "schema": { "$ref": "#/entities/Equipment" },
+      "description": "Supporting peripherals and network devices"
+    },
+    "/schedules/{scheduleId}": {
+      "schema": { "$ref": "#/entities/Schedule" },
+      "description": "Lab schedule bookings"
+    },
+    "/borrowings/{borrowingId}": {
+      "schema": { "$ref": "#/entities/Borrowing" },
+      "description": "Equipment loans and returns"
+    },
+    "/maintenance/{maintenanceId}": {
+      "schema": { "$ref": "#/entities/Maintenance" },
+      "description": "Maintenance work orders and repair actions"
+    },
+    "/damage_reports/{reportId}": {
+      "schema": { "$ref": "#/entities/DamageReport" },
+      "description": "Damage reports from lab users"
+    },
+    "/users_lab/{userLabId}": {
+      "schema": { "$ref": "#/entities/LabUser" },
+      "description": "Registered students, teachers, and staff"
+    },
+    "/activities/{activityId}": {
+      "schema": { "$ref": "#/entities/Activity" },
+      "description": "Photo and event documentation records"
+    },
+    "/documents/{documentId}": {
+      "schema": { "$ref": "#/entities/LabDocument" },
+      "description": "Administrative SOPs, guidelines, and reports"
+    },
+    "/guests/{guestId}": {
+      "schema": { "$ref": "#/entities/Guest" },
+      "description": "Guest book and practical visit logbook"
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/AppSetting" },
+      "description": "Institutional configuration and signatory settings"
+    },
+    "/activity_logs/{logId}": {
+      "schema": { "$ref": "#/entities/ActivityLog" },
+      "description": "System activity audit logs"
+    },
+    "/access_roles/{roleId}": {
+      "schema": { "$ref": "#/entities/AccessRole" },
+      "description": "Configurable user access levels and permissions managed by Administrator"
+    },
+    "/practicum_attendance/{attendanceId}": {
+      "schema": { "$ref": "#/entities/StudentAttendance" },
+      "description": "Student attendance records entered by subject teachers"
+    },
+    "/lesson_journals/{journalId}": {
+      "schema": { "$ref": "#/entities/LessonJournal" },
+      "description": "Practicum incident notes, 1-5 star comfort ratings, and practicum photos"
+    },
+    "/classes/{classId}": {
+      "schema": { "$ref": "#/entities/SchoolClass" },
+      "description": "Fixed 9 classes (X, XI, XII AKL/DKV/ATPH) and homeroom teacher config"
+    },
+    "/students/{studentId}": {
+      "schema": { "$ref": "#/entities/Student" },
+      "description": "Student master directory across 9 classes"
+    },
+    "/attendance/{attendanceId}": {
+      "schema": { "$ref": "#/entities/ClassAttendanceRecord" },
+      "description": "Per-student daily class attendance records"
+    },
+    "/academic_years/{yearId}": {
+      "schema": { "$ref": "#/entities/AcademicYearConfig" },
+      "description": "Academic year and semester range configuration"
+    },
+    "/school_calendar/{eventId}": {
+      "schema": { "$ref": "#/entities/SchoolCalendarEvent" },
+      "description": "National holidays, semester breaks, and school calendar"
+    },
+    "/attendance_settings/{settingId}": {
+      "schema": { "$ref": "#/entities/AttendanceSettings" },
+      "description": "Effective school days and official attendance report kop configuration"
+    },
+    "/attendance_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AttendanceLog" },
+      "description": "Audit logs of attendance record creations, edits, and deletions"
+    },
+    "/galleryImages/{imageId}": {
+      "schema": { "$ref": "#/entities/GalleryImage" },
+      "description": "Galeri Laboratorium image metadata synced with Firebase Storage"
+    },
+    "/galleryCategories/{categoryId}": {
+      "schema": { "$ref": "#/entities/GalleryCategory" },
+      "description": "Manageable categories for Galeri Laboratorium"
+    },
+    "/computer_usage/{usageId}": {
+      "schema": { "$ref": "#/entities/ComputerUsageRecord" },
+      "description": "Computer usage check-in/check-out transactions"
+    },
+    "/computer_usage_members/{memberId}": {
+      "schema": { "$ref": "#/entities/ComputerUsageMember" },
+      "description": "Students or users linked to each computer usage session"
+    },
+    "/computer_condition_checks/{checkId}": {
+      "schema": { "$ref": "#/entities/ComputerConditionCheck" },
+      "description": "Pre and post usage 9-component condition checklists"
+    },
+    "/computer_damage_reports/{reportId}": {
+      "schema": { "$ref": "#/entities/ComputerDamageReport" },
+      "description": "Non-blaming chronological computer damage reports"
+    },
+    "/computer_status_history/{historyId}": {
+      "schema": { "$ref": "#/entities/ComputerStatusHistory" },
+      "description": "Operational status audit timeline per computer"
+    },
+    "/external_users/{guestId}": {
+      "schema": { "$ref": "#/entities/ExternalUser" },
+      "description": "External guest users directory for lab computers"
+    },
+    "/computer_usage_settings/{settingId}": {
+      "schema": { "$ref": "#/entities/ComputerUsageSettings" },
+      "description": "Computer usage module settings"
+    }
+  }
+}
